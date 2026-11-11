@@ -1,0 +1,36 @@
+/* Starfall Survivor — page chrome only.
+   The game itself is drawn by Phaser on the <canvas>.
+   Keep this file tiny: all in-game visuals live in game.js. */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #050514;
+  color: #eaf6ff;
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#game {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+#game canvas {
+  display: block;
+  touch-action: none;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+}
+#bootfail {
+  max-width: 420px;
+  padding: 24px;
+  text-align: center;
+  font-size: 17px;
+  line-height: 1.5;
+}

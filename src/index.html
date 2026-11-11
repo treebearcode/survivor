@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>Starfall Survivor</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="game"></div>
+<!-- Shown ONLY if the game never starts (library load failure). -->
+<div id="bootfail" hidden>
+  The game couldn&rsquo;t start &mdash; a file it needs didn&rsquo;t load.
+  Check your connection, then close and reopen this page.
+</div>
+
+<script>
+  // Boot guard: if Phaser never appears, show the message above instead
+  // of a silent blank page.
+  window.__survivorBoot = { booted: false };
+  window.__survivorShowFail = function (msg) {
+    var el = document.getElementById("bootfail");
+    if (!el || window.__survivorBoot.booted) return;
+    el.hidden = false;
+    if (msg) {
+      var p = document.createElement("p");
+      p.style.cssText = "font-size:13px;opacity:.75;word-break:break-word;";
+      p.textContent = String(msg);
+      el.appendChild(p);
+    }
+  };
+  window.addEventListener("error", function (e) {
+    if (window.__survivorBoot.booted) return;
+    window.__survivorShowFail(e.message);
+  });
+</script>
+
+<!-- Phaser 3.60, bundled locally. If this copy ever fails to load,
+     the boot script below falls back to the CDN copy. -->
+<script src="assets/phaser.min.js"></script>
+<script src="game.js"></script>
+<script>
+  // Start the game once Phaser is available.
+  // game.js defines window.__startSurvivor() but does NOT auto-start,
+  // so this is the one place that decides when to boot.
+  (function () {
+    function start() {
+      if (typeof window.__startSurvivor === "function" && window.__startSurvivor()) {
+        window.__survivorBoot.booted = true;
+      } else {
+        window.__survivorShowFail("Phaser loaded but the game did not start.");
+      }
+    }
+    if (typeof Phaser !== "undefined") {
+      start();
+    } else {
+      // Local copy failed — try the CDN, once.
+      var s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js";
+      s.onload = start;
+      s.onerror = function () {
+        window.__survivorShowFail("Could not load Phaser (local copy or CDN).");
+      };
+      document.head.appendChild(s);
+    }
+  })();
+</script>
+</body>
+</html>
