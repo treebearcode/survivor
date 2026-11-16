@@ -617,11 +617,6 @@ export class SurvivorScene extends Phaser.Scene {
     });
   }
 
-  // Enemy separation: overlapping enemies push apart so a horde reads
-  // as a crowd instead of one stacked sprite. Non-boss only. Squared
-  // distance first, so pairs that aren't touching cost almost nothing.
-  // body.reset() moves the physics body with the sprite; velocity is
-  // re-set from steering next frame anyway.
   fireEnemyBullet(x, y, nx, ny, speed, dmg) {
     const b = this.enemyBullets.create(x, y, "bullet-enemy");
     b.setDepth(3);

@@ -15,6 +15,11 @@
   The game couldn&rsquo;t start &mdash; a file it needs didn&rsquo;t load.
   Check your connection, then close and reopen this page.
 </div>
+<!-- Shown ONLY if the running game throws an error (e.g. a freeze).
+     A frozen game with no message is impossible to debug, so the
+     error is printed here instead of failing silently. -->
+<div id="rerr" hidden
+  style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#7f1d1d;color:#fff;font:13px monospace;padding:8px;white-space:pre-wrap;word-break:break-word;"></div>
 
 <script>
   // Boot guard: if Phaser never appears, show the message above instead
@@ -32,8 +37,26 @@
     }
   };
   window.addEventListener("error", function (e) {
-    if (window.__survivorBoot.booted) return;
-    window.__survivorShowFail(e.message);
+    if (!window.__survivorBoot.booted) {
+      window.__survivorShowFail(e.message);
+      return;
+    }
+    // After boot: a runtime error would otherwise freeze the game
+    // with no visible trace, so print it in the red banner above.
+    var el = document.getElementById("rerr");
+    if (el) {
+      el.hidden = false;
+      el.textContent = "Game error: " + e.message +
+        " @ " + (e.filename || "?") + ":" + (e.lineno || "?");
+    }
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var el = document.getElementById("rerr");
+    if (el && window.__survivorBoot.booted) {
+      el.hidden = false;
+      el.textContent = "Game error: " + (e.reason && e.reason.message
+        ? e.reason.message : String(e.reason));
+    }
   });
 </script>
 
