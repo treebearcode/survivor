@@ -11,21 +11,23 @@ Health / Magnet pickups, a 5:00 boss with a HP bar, victory and
 game-over screens, and best time / best level in localStorage.
 All art is procedural and all sounds are WebAudio — no external assets.
 
-**Play it:** open `dist/index.html` in a browser (double-click works — the
-Phaser library is inlined, so no server or internet is needed), or run
-`python3 -m http.server` in this folder and open `http://localhost:8000/dist/`.
+**Play it:** live at https://treebearcode.github.io/survivor/ (GitHub
+Pages serves `docs/` as-is — no build step).
 
-**Edit it in VSCode:** the source of truth is `src/` — `src/index.html`,
-`src/style.css`, and `src/game.js` (commented as a learning example).
-After editing, rebuild the playable bundle with:
+**Play / edit it locally:** the source of truth is `docs/` — edit the
+files there directly, no build, no bundling. ES modules do NOT work by
+double-clicking (`file://` blocks imports), so serve `docs/` instead:
 
 ```bash
-# from this repo root (the script lives at ~/workspace/tools/inline-build.py):
-python3 ../tools/inline-build.py src/index.html -o dist/index.html
+cd docs
+python3 -m http.server
+# open http://localhost:8000/
 ```
 
-Phaser 3.60 is bundled locally in `src/assets/phaser.min.js` (with a CDN
-fallback in `src/index.html`), so the game works offline.
+Or use VSCode Live Server on `docs/index.html`.
+
+Phaser 3.60 is bundled locally in `docs/assets/phaser.min.js` (with a CDN
+fallback in `docs/index.html`), so the game works offline once loaded.
 
 ## How to play
 
@@ -53,8 +55,8 @@ fallback in `src/index.html`), so the game works offline.
 - **Weapons (max 3 owned, each max Lv 5):**
   - **Pulse Blaster** (starting weapon) — auto-fires at the nearest
     enemy. Lv 5: damage 22, 3 projectiles, ~3.3 shots/s.
-  - **Orbital Blades** — energy blades orbit you (radius 70 → 102)
-    and slice on contact. Lv 5: 4 blades, damage 24.
+  - **Orbital Blades** — energy blades orbit you (radius 85 → 117)
+    and slice on contact. Lv 5: 5 blades, damage 26.
   - **Nova Pulse** — a radial burst every 4s → 2.4s, damage 18 → 34,
     radius 140 → 220, with knockback.
 - **Level-up cards also include:** +20 max HP and heal 20, +15% move
@@ -70,29 +72,27 @@ fallback in `src/index.html`), so the game works offline.
   shows the same plus a victory message. Best time and best level
   are saved in localStorage and shown on the title screen.
 
-## Files
+## Files (ES modules, dev directly in `docs/`)
 
 ```
-src/
+docs/                 Source of truth AND the GitHub Pages folder — edit here
   index.html          Page shell + Phaser loader (local copy, CDN fallback)
   style.css           Page chrome only — the game is drawn by Phaser
-  game.js             The whole game, commented as a learning example
+  main.js             Entry: exposes window.__startSurvivor, boots the game
+  config.js           Tuning: CONFIG, ENEMY_TYPES, WEAPONS
+  helpers.js          Pure helpers: XP, spawn rates, weapon stats by level
+  sound.js            WebAudio beeps (beep, sfx)
+  textures.js         Procedural art: all make*Texture functions
+  scene.js            SurvivorScene + startSurvivor (the game itself)
   assets/
     phaser.min.js     Phaser 3.60.0, bundled locally (MIT licence, see CREDITS.md)
-dist/
-  index.html          Single-file playable build (Phaser + CSS + game inlined)
-docs/
-  index.html          Byte-identical copy of dist/index.html, for GitHub Pages
 README.md
 CREDITS.md
 ```
 
-After every rebuild, re-copy the playable build to `docs/` so Pages stays
-in sync:
-
-```bash
-cp dist/index.html docs/index.html
-```
+Phaser is loaded as a classic script (a global) in `index.html`; only
+our own code is ES modules. Every import is a full relative path with
+the `.js` extension. No build step — push `docs/` and Pages serves it.
 
 ## What's not in V1 (ideas for later)
 
