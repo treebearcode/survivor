@@ -49,11 +49,14 @@ const CONFIG = {
   playerRadius: 16,
   invulnSec: 0.6,         // i-frames after a hit
   pickupRadius: 70,       // magnet radius for XP gems, at start
-  spawnStartSec: 1.2,     // spawn interval at 0:00
+  spawnStartSec: 0.9,     // spawn interval at 0:00 (V1.1: was 1.2 — too sparse early)
   spawnEndSec: 0.35,      // spawn interval at 4:30 (and after)
   spawnEndAtSec: 270,     // 4:30 — interval stops shrinking here
-  spawnBatchEverySec: 90, // +1 enemy per batch every 90s, max 4
+  spawnBatchEverySec: 75, // +1 enemy per batch every 75s, max 4 (V1.1: was 90)
   spawnMaxBatch: 4,
+  swarmFirstSec: 30,      // V1.1: first swarm ring at 0:30, then every 40s
+  swarmEverySec: 40,
+  swarmCount: 10,         // drones in each ring, closing in on the player
   hpScalePerMin: 0.35,    // enemy HP x (1 + elapsed/60 * 0.35)
   eliteFromSec: 120,      // elites appear from 2:00
   eliteChance: 0.10,      // 10% of spawns are elites after 2:00
@@ -97,14 +100,14 @@ const WEAPONS = {
 // XP to go from `level` to `level + 1`: 5, 9, 13, 17, 21, ...
 function xpForLevel(level) { return 5 + (level - 1) * 4; }
 
-// Spawn interval shrinks linearly from 1.2s at 0:00 to 0.35s at 4:30,
+// Spawn interval shrinks linearly from 0.9s at 0:00 to 0.35s at 4:30,
 // then stays at 0.35s. (elapsed is seconds since the run started.)
 function spawnIntervalSec(elapsed) {
   const t = Math.min(elapsed, CONFIG.spawnEndAtSec) / CONFIG.spawnEndAtSec;
   return Math.max(CONFIG.spawnEndSec,
     CONFIG.spawnStartSec - (CONFIG.spawnStartSec - CONFIG.spawnEndSec) * t);
 }
-// Batch size: 1 until 1:30, then 2, 3 from 3:00, 4 from 4:30.
+// Batch size: 1 until 1:15, then 2, 3 from 2:30, 4 from 3:45.
 function spawnBatchSize(elapsed) {
   return Math.min(CONFIG.spawnMaxBatch,
     1 + Math.floor(elapsed / CONFIG.spawnBatchEverySec));
@@ -135,12 +138,14 @@ function blasterStats(level) {
   };
 }
 // Blades: damage up, +1 blade at 3 and 5, wider orbit, faster spin.
+// V1.1: starts with 3 blades at radius 85 (was 2 at 70) — at level 1
+// the orbit has to be worth picking up before the player is surrounded.
 function bladeStats(level) {
   return {
-    dmg: 12 + (level - 1) * 3,                 // 12, 15, 18, 21, 24
-    count: 2 + (level >= 3 ? 1 : 0) + (level >= 5 ? 1 : 0), // 2, 2, 3, 3, 4
-    radius: 70 + (level - 1) * 8,              // 70 .. 102
-    spinRadPerSec: 2.8 + (level - 1) * 0.3,    // 2.8 .. 4.0
+    dmg: 14 + (level - 1) * 3,                 // 14, 17, 20, 23, 26
+    count: 3 + (level >= 3 ? 1 : 0) + (level >= 5 ? 1 : 0), // 3, 3, 4, 4, 5
+    radius: 85 + (level - 1) * 8,              // 85 .. 117
+    spinRadPerSec: 3.4 + (level - 1) * 0.3,    // 3.4 .. 4.6
   };
 }
 // Nova Pulse: damage up, wider radius, shorter cooldown.
@@ -410,6 +415,7 @@ class SurvivorScene extends Phaser.Scene {
     this.armour = 0;            // -1 contact damage each, min 3 per hit
     this.invulnUntil = 0;
     this.spawnTimer = 0;
+    this.nextSwarmAt = CONFIG.swarmFirstSec;
     this.blasterTimer = 0;
     this.novaTimer = 0;
     this.bladeAngle = 0;
@@ -771,6 +777,13 @@ class SurvivorScene extends Phaser.Scene {
       for (let i = 0; i < batch; i++) this.spawnEnemy();
     }
 
+    // Swarm rings (V1.1): every 40s a ring of drones closes in on the
+    // player — the surrounded moments Orbital Blades are built for.
+    if (this.elapsed >= this.nextSwarmAt) {
+      this.nextSwarmAt += CONFIG.swarmEverySec;
+      this.spawnSwarm();
+    }
+
     // Boss at 5:00 — once.
     if (this.elapsed >= CONFIG.runLengthSec && !this.bossSpawned) {
       this.spawnBoss();
@@ -847,6 +860,17 @@ class SurvivorScene extends Phaser.Scene {
     const x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 20, CONFIG.worldWidth - 20);
     const y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 20, CONFIG.worldHeight - 20);
     this.spawnEnemyAt(x, y, typeId, false);
+  }
+
+  spawnSwarm() {
+    // A ring of drones around the player, just off-screen, all closing in.
+    for (let i = 0; i < CONFIG.swarmCount; i++) {
+      const a = (i / CONFIG.swarmCount) * Math.PI * 2;
+      const dist = 560 + Math.random() * 60;
+      const x = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dist, 20, CONFIG.worldWidth - 20);
+      const y = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dist, 20, CONFIG.worldHeight - 20);
+      this.spawnEnemyAt(x, y, "drone", false);
+    }
   }
 
   spawnBoss() {
@@ -1126,10 +1150,10 @@ class SurvivorScene extends Phaser.Scene {
 
   onBladeHitEnemy(blade, enemy) {
     if (!enemy.active || !this.weapons.blades) return;
-    // One hit per enemy per 350ms — without this, a blade sitting on
-    // an enemy would damage it every single frame.
+    // One hit per enemy per 250ms (V1.1: was 350) — without this, a
+    // blade sitting on an enemy would damage it every single frame.
     const now = this.time.now;
-    if (now - enemy.lastBladeHit < 350) return;
+    if (now - enemy.lastBladeHit < 250) return;
     enemy.lastBladeHit = now;
     this.damageEnemy(enemy, bladeStats(this.weapons.blades).dmg);
   }

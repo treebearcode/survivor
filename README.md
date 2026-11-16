@@ -33,8 +33,12 @@ fallback in `src/index.html`), so the game works offline.
   Weapons fire on their own — no aiming.
 - **Survive 5:00.** Enemies spawn off-screen in a ring around you; they
   get more numerous and tougher as the run goes on. Spawn interval
-  shrinks from 1.2s to ~0.35s by 4:30, batch size grows 1 → 4, and
-  enemy HP scales ×(1 + minutes × 0.35).
+  shrinks from 0.9s to ~0.35s by 4:30, batch size grows 1 → 4, and
+  enemy HP scales ×(1 + minutes × 0.35). Every 40s from 0:30 a swarm
+  ring of 10 drones closes in on you.
+- **V1.1 tuning (Nov 16, 2026):** denser early spawns and swarm rings so
+  Orbital Blades have crowds to cut through in the first minutes;
+  blades start at 3 blades, radius 85, damage 14 (was 2 / 70 / 12).
 - **Enemies:**
   - **Scrap Drone** (from 0:00) — HP 12, fast, contact 8, drops a 1-XP gem.
   - **Void Crawler** (from 0:45) — HP 36, slow and tanky, contact 12, 3 XP.
