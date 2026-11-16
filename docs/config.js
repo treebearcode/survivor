@@ -38,7 +38,7 @@ export const CONFIG = {
   bossSpawnDroneEverySec: 6,
   bossBurstEverySec: 5,
   bossBurstCount: 8,      // 8-way bullet burst
-  gemMagnetSpeed: 420,    // px/s a magnetised gem flies to the player
+  gemMagnetSpeed: 560,    // px/s a magnetised gem flies to the player
   gemCollectDist: 26,     // px — a gem this close is collected
   healthDropChance: 0.05, // ~5% of kills drop a Health Cell
   magnetDropChance: 0.03, // ~3% of kills drop a Magnet Cell

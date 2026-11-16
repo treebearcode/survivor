@@ -18,6 +18,8 @@ and a nova pulse — survive 5:00, then defeat the Void Dreadnought.
   (+max HP, +speed, +damage, +magnet, +armour).
 - Health / Magnet pickups, victory and game-over screens, best time
   and best level saved in localStorage.
+- Feel: enemies push apart so hordes read as a crowd, damage numbers,
+  death sparks, hit knockback, screen shake, and faster gem pickup.
 - All art is procedural and all sounds are WebAudio — no external assets.
 - ES modules in `docs/`, no build step — Pages serves it as-is.
 

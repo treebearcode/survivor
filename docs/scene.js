@@ -151,6 +151,26 @@ export class SurvivorScene extends Phaser.Scene {
 
     this.createHud();
     this.createOverlays();
+
+    // Damage numbers: a reusable pool of floating texts. showDamageNumber()
+    // takes the first hidden one, so a busy pool just skips a number.
+    this.damageNumbers = [];
+    for (let i = 0; i < 24; i++) {
+      const t = this.add.text(0, 0, "", {
+        fontSize: "13px", color: "#ffffff", fontStyle: "bold",
+      }).setDepth(25).setStroke("#000000", 3).setVisible(false);
+      this.damageNumbers.push(t);
+    }
+
+    // Death sparks: one emitter, fired in bursts at each kill.
+    this.deathParticles = this.add.particles(0, 0, "star", {
+      emitting: false,
+      speed: { min: 60, max: 220 },
+      lifespan: 450,
+      scale: { start: 0.9, end: 0 },
+      tint: [0x2de2ff, 0xffd23f, 0xff2e63],
+    });
+
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.physics.world.pause(); // title screen: nothing moves yet
     this.showTitle();
@@ -385,6 +405,7 @@ export class SurvivorScene extends Phaser.Scene {
 
     this.movePlayer(dt);
     this.updateEnemies(time, dt);
+    this.separateEnemies();
     this.updateWeapons(time, dt);
     this.updateGems(dt);
     this.updateBullets(dt);
@@ -575,6 +596,38 @@ export class SurvivorScene extends Phaser.Scene {
     });
   }
 
+  // Enemy separation: overlapping enemies push apart so a horde reads
+  // as a crowd instead of one stacked sprite. Non-boss only. Squared
+  // distance first, so pairs that aren't touching cost almost nothing.
+  // body.reset() moves the physics body with the sprite; velocity is
+  // re-set from steering next frame anyway.
+  separateEnemies() {
+    const list = this.enemies.getChildren();
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      if (!a.active || a.isBoss) continue;
+      const ra = ENEMY_TYPES[a.eType].radius * (a.isElite ? CONFIG.eliteScale : 1);
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (!b.active || b.isBoss) continue;
+        const rb = ENEMY_TYPES[b.eType].radius * (b.isElite ? CONFIG.eliteScale : 1);
+        const minD = ra + rb;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= minD * minD) continue;
+        const dist = Math.sqrt(d2);
+        const nx = dist > 0 ? dx / dist : 1, ny = dist > 0 ? dy / dist : 0;
+        const push = (minD - dist) / 2;
+        a.body.reset(
+          Phaser.Math.Clamp(a.x - nx * push, 20, CONFIG.worldWidth - 20),
+          Phaser.Math.Clamp(a.y - ny * push, 20, CONFIG.worldHeight - 20));
+        b.body.reset(
+          Phaser.Math.Clamp(b.x + nx * push, 20, CONFIG.worldWidth - 20),
+          Phaser.Math.Clamp(b.y + ny * push, 20, CONFIG.worldHeight - 20));
+      }
+    }
+  }
+
   fireEnemyBullet(x, y, nx, ny, speed, dmg) {
     const b = this.enemyBullets.create(x, y, "bullet-enemy");
     b.setDepth(3);
@@ -657,6 +710,7 @@ export class SurvivorScene extends Phaser.Scene {
 
   fireNovaPulse(st) {
     sfx.nova();
+    this.cameras.main.shake(120, 0.004);
     // Expanding ring visual (a "ring" texture scaled up, then faded).
     const ring = this.add.image(this.player.x, this.player.y, "ring").setDepth(7);
     ring.setScale(0.3);
@@ -694,7 +748,9 @@ export class SurvivorScene extends Phaser.Scene {
   // (this.damageMult) applies to every weapon exactly once.
   damageEnemy(enemy, rawDmg) {
     if (!enemy.active) return;
-    enemy.hp -= rawDmg * this.damageMult;
+    const dealt = rawDmg * this.damageMult;
+    enemy.hp -= dealt;
+    this.showDamageNumber(enemy.x, enemy.y, dealt);
     // Flash white for a frame; elites go back to gold afterwards.
     enemy.setTintFill(0xffffff);
     this.time.delayedCall(60, () => {
@@ -703,6 +759,30 @@ export class SurvivorScene extends Phaser.Scene {
       else enemy.clearTint();
     });
     if (enemy.hp <= 0) this.killEnemy(enemy);
+  }
+
+  // Floating damage number: first hidden pool text, up ~28px and faded
+  // over ~450ms. If the whole pool is busy, skip silently.
+  showDamageNumber(x, y, amount) {
+    const t = this.damageNumbers.find((n) => !n.visible);
+    if (!t) return;
+    t.setText(String(Math.round(amount)));
+    t.setPosition(x + Phaser.Math.Between(-8, 8), y - 10);
+    t.setAlpha(1).setVisible(true);
+    this.tweens.add({
+      targets: t, y: t.y - 28, alpha: 0, duration: 450,
+      onComplete: () => t.setVisible(false),
+    });
+  }
+
+  // Shove an enemy away from the player, using the same knockback
+  // fields Nova Pulse uses (they decay in updateEnemies).
+  shoveEnemy(enemy, magnitude, duration) {
+    const dx = enemy.x - this.player.x, dy = enemy.y - this.player.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    enemy.knockVX = (dx / dist) * magnitude;
+    enemy.knockVY = (dy / dist) * magnitude;
+    enemy.knockT = duration;
   }
 
   killEnemy(enemy) {
@@ -714,9 +794,13 @@ export class SurvivorScene extends Phaser.Scene {
     }
     this.kills++;
     const x = enemy.x, y = enemy.y;
+    this.deathParticles.explode(10, x, y);
     // XP gem: elites drop a 10, everyone else their type value.
+    // It pops in from half size over 120ms.
     const gem = this.gems.create(x, y, "gem-" + enemy.xpValue);
     gem.setDepth(2);
+    gem.setScale(0.5);
+    this.tweens.add({ targets: gem, scale: 1, duration: 120 });
     gem.xpValue = enemy.xpValue;
     gem.magnetized = false;
     gem.body.setCircle(8, 0, 0);
@@ -740,6 +824,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.hp -= dmg;
     this.invulnUntil = time + CONFIG.invulnSec * 1000;
     sfx.hurt();
+    this.cameras.main.shake(90, 0.003);
     this.player.setTintFill(0xff0000);
     this.time.delayedCall(150, () => { if (this.player.active) this.player.clearTint(); });
     if (this.hp <= 0) {
@@ -759,6 +844,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.state = "victory";
     this.physics.world.pause();
     sfx.victory();
+    this.cameras.main.shake(350, 0.008);
     this.setEndScreen(true);
   }
 
@@ -766,6 +852,7 @@ export class SurvivorScene extends Phaser.Scene {
     if (!bullet.active || !enemy.active) return;
     const dmg = bullet.dmg;
     bullet.destroy();
+    this.shoveEnemy(enemy, 140, 0.15);
     this.damageEnemy(enemy, dmg);
   }
 
@@ -776,6 +863,7 @@ export class SurvivorScene extends Phaser.Scene {
     const now = this.time.now;
     if (now - enemy.lastBladeHit < 250) return;
     enemy.lastBladeHit = now;
+    this.shoveEnemy(enemy, 200, 0.15);
     this.damageEnemy(enemy, bladeStats(this.weapons.blades).dmg);
   }
 
@@ -794,6 +882,7 @@ export class SurvivorScene extends Phaser.Scene {
   onGemCollect(gem) {
     if (!gem.active) return;
     const v = gem.xpValue || 1;
+    this.tweens.killTweensOf(gem); // stop the pop-in tween, if still running
     gem.destroy();
     sfx.pickup();
     this.gainXp(v);
