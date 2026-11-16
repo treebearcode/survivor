@@ -47,6 +47,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.bossBurstTimer = 0;
     this.levelUpQueue = 0;
     this.levelUpOptions = [];
+    this.levelUpCardBgs = [];
     this.bestTime = 0;
     this.bestLevel = 0;
   }
@@ -116,13 +117,15 @@ export class SurvivorScene extends Phaser.Scene {
     // --- Overlaps (group vs group / group vs player) ---
     this.physics.add.overlap(this.playerBullets, this.enemies,
       (bullet, enemy) => this.onBulletHitEnemy(bullet, enemy));
-    // NOTE: overlap callbacks receive (object1, object2) in the order
-    // the objects were passed — enemies first here, so the first
-    // argument IS the enemy. Do not swap the order.
+    // NOTE: for a group-vs-sprite overlap Phaser calls the callback
+    // as (sprite, groupChild) whatever order the objects were passed
+    // in — so the enemy / bullet is the SECOND argument here, not
+    // the first. (The first argument is the player; reading .dmg off
+    // it gives undefined, which poisoned HP to NaN on first contact.)
     this.physics.add.overlap(this.enemies, this.player,
-      (enemy) => this.onEnemyTouchPlayer(enemy));
+      (player, enemy) => this.onEnemyTouchPlayer(enemy));
     this.physics.add.overlap(this.enemyBullets, this.player,
-      (bullet) => this.onEnemyBulletHit(bullet));
+      (player, bullet) => this.onEnemyBulletHit(bullet));
     this.physics.add.overlap(this.blades, this.enemies,
       (blade, enemy) => this.onBladeHitEnemy(blade, enemy));
     this.physics.add.overlap(this.player, this.gems,
@@ -243,9 +246,10 @@ export class SurvivorScene extends Phaser.Scene {
   }
 
   // --- Overlays: title / level-up / pause / game over / victory. ---
-  // Each is a container, hidden until needed. Level-up cards take
-  // clicks on their background rectangle, so clicks work on desktop
-  // and touch alike. Keyboard shortcuts are handled in update().
+  // Each is a container, hidden until needed. All clicks go through
+  // the scene-level pointer handlers below (the same path the title
+  // screen uses), including level-up cards, which are picked by
+  // their screen position. Keyboard shortcuts are handled in update().
   createOverlays() {
     // Title.
     this.titleBox = this.add.container(CONFIG.width / 2, CONFIG.height / 2)
@@ -317,11 +321,22 @@ export class SurvivorScene extends Phaser.Scene {
     ]);
 
     // Scene-level clicks: start from the title, restart from an end
-    // screen. Level-up cards have their own handlers and this one
-    // ignores the "levelup" state, so one click can never do two things.
-    this.input.on("pointerdown", () => {
-      if (this.state === "title") this.startRun();
+    // screen, pick a level-up card by its screen position. One click
+    // can never do two things: each branch only runs in its own state.
+    this.input.on("pointerdown", (pointer) => {
+      if (this.state === "levelup") {
+        const i = this.levelUpCardAt(pointer.x, pointer.y);
+        if (i >= 0) this.pickLevelUp(i);
+      } else if (this.state === "title") this.startRun();
       else if (this.state === "gameover" || this.state === "victory") this.restartRun();
+    });
+    // Hover highlight for level-up cards, with a hand cursor.
+    this.input.on("pointermove", (pointer) => {
+      if (this.state !== "levelup" || !this.levelUpCardBgs) return;
+      const i = this.levelUpCardAt(pointer.x, pointer.y);
+      this.levelUpCardBgs.forEach((bg, j) =>
+        bg.setFillStyle(j === i ? 0x14335f : 0x0a1a3a, 0.95));
+      this.input.setDefaultCursor(i >= 0 ? "pointer" : "default");
     });
   }
 
@@ -994,11 +1009,23 @@ export class SurvivorScene extends Phaser.Scene {
       ", every " + (s.cooldownMs / 1000).toFixed(1) + "s.";
   }
 
+  // Which level-up card (if any) sits under a game-coordinate point.
+  // Cards are 240x190, centred at (200 + i*280, 280).
+  levelUpCardAt(x, y) {
+    if (this.state !== "levelup") return -1;
+    for (let i = 0; i < this.levelUpOptions.length; i++) {
+      const cx = 200 + i * 280, cy = 280;
+      if (Math.abs(x - cx) <= 120 && Math.abs(y - cy) <= 95) return i;
+    }
+    return -1;
+  }
+
   showLevelUp() {
     this.state = "levelup";
     this.physics.world.pause();
     sfx.levelup();
     this.levelUpOptions = this.buildLevelUpOptions();
+    this.levelUpCardBgs = [];
     this.levelUpBox.removeAll(true);
     this.levelUpBox.add(this.add.text(CONFIG.width / 2, 92, "LEVEL UP!  Choose one:", {
       fontSize: "28px", color: "#ffd23f", fontStyle: "bold",
@@ -1007,11 +1034,8 @@ export class SurvivorScene extends Phaser.Scene {
       const cx = 200 + i * 280, cy = 280;
       const card = this.add.container(cx, cy);
       const bg = this.add.rectangle(0, 0, 240, 190, 0x0a1a3a, 0.95)
-        .setStrokeStyle(2, 0x2de2ff, 0.9)
-        .setInteractive({ useHandCursor: true });
-      bg.on("pointerdown", () => this.pickLevelUp(i));
-      bg.on("pointerover", () => bg.setFillStyle(0x14335f, 0.95));
-      bg.on("pointerout", () => bg.setFillStyle(0x0a1a3a, 0.95));
+        .setStrokeStyle(2, 0x2de2ff, 0.9);
+      this.levelUpCardBgs.push(bg);
       card.add([
         bg,
         this.add.text(0, -72, opt.title, {
@@ -1057,6 +1081,7 @@ export class SurvivorScene extends Phaser.Scene {
     if (this.levelUpQueue > 0) this.showLevelUp();
     else {
       this.state = "playing";
+      this.input.setDefaultCursor("default");
       this.physics.world.resume();
     }
   }
