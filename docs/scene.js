@@ -190,6 +190,9 @@ export class SurvivorScene extends Phaser.Scene {
     this.hudLevel = this.add.text(16, 12, "Lv 1", {
       fontSize: "18px", color: "#ffffff", fontStyle: "bold",
     }).setScrollFactor(0).setDepth(20);
+    this.hudHpText = this.add.text(226, 38, "HP 100/100", {
+      fontSize: "15px", color: "#ffffff", fontStyle: "bold",
+    }).setOrigin(0, 0).setScrollFactor(0).setDepth(20);
     this.hudKills = this.add.text(CONFIG.width - 16, 12, "Kills 0", {
       fontSize: "18px", color: "#ffffff",
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(20);
@@ -206,12 +209,16 @@ export class SurvivorScene extends Phaser.Scene {
   }
 
   drawHud() {
-    // HP bar (top-left, under the level text).
+    // HP bar (top-left, under the level text): dark backing, bright
+    // border so the empty bar is still visible, plus an "HP 87/100"
+    // readout — a bare thin strip on a dark background reads as nothing.
     this.hpBarG.clear();
-    this.hpBarG.fillStyle(0x000000, 0.55).fillRect(14, 38, 204, 16);
+    this.hpBarG.fillStyle(0x000000, 0.75).fillRect(14, 38, 204, 18);
     const hpFrac = Phaser.Math.Clamp(this.hp / this.maxHp, 0, 1);
     this.hpBarG.fillStyle(hpFrac > 0.35 ? 0x4ade80 : 0xff2e63, 1)
-      .fillRect(16, 40, 200 * hpFrac, 12);
+      .fillRect(16, 40, 200 * hpFrac, 14);
+    this.hpBarG.lineStyle(2, 0xffffff, 0.85).strokeRect(14, 38, 204, 18);
+    this.hudHpText.setText("HP " + this.hp + "/" + this.maxHp);
     // XP bar (full width, just under the top edge).
     this.xpBarG.clear();
     this.xpBarG.fillStyle(0x000000, 0.55).fillRect(0, 0, CONFIG.width, 6);
