@@ -5,11 +5,21 @@ with a fantasy wink. Nova the salvager fights scrap drones, void
 crawlers and spitters with a pulse blaster, orbiting energy blades
 and a nova pulse — survive 5:00, then defeat the Void Dreadnought.
 
-**V1 is in:** move-only combat with auto-firing weapons, XP gems,
-level-up cards (pick 1 of 3), 3 enemy types + elites from 2:00,
-Health / Magnet pickups, a 5:00 boss with a HP bar, victory and
-game-over screens, and best time / best level in localStorage.
-All art is procedural and all sounds are WebAudio — no external assets.
+## Features
+
+- Move-only survivor — WASD / arrows or hold-mouse to move, weapons
+  fire on their own, no aiming.
+- 5:00 run, then the Void Dreadnought boss (HP 1200, with a HP bar) —
+  kill it to win.
+- 3 weapons, each up to Lv 5: Pulse Blaster, Orbital Blades, Nova Pulse.
+- 3 enemy types (Scrap Drone, Void Crawler, Spitter) + gold elites
+  from 2:00, and swarm rings of 10 drones every 40s from 0:30.
+- XP gems, level-up cards (pick 1 of 3), plus stat upgrades
+  (+max HP, +speed, +damage, +magnet, +armour).
+- Health / Magnet pickups, victory and game-over screens, best time
+  and best level saved in localStorage.
+- All art is procedural and all sounds are WebAudio — no external assets.
+- ES modules in `docs/`, no build step — Pages serves it as-is.
 
 **Play it:** live at https://treebearcode.github.io/survivor/ (GitHub
 Pages serves `docs/` as-is — no build step).
@@ -38,9 +48,6 @@ fallback in `docs/index.html`), so the game works offline once loaded.
   shrinks from 0.9s to ~0.35s by 4:30, batch size grows 1 → 4, and
   enemy HP scales ×(1 + minutes × 0.35). Every 40s from 0:30 a swarm
   ring of 10 drones closes in on you.
-- **V1.1 tuning (Nov 16, 2026):** denser early spawns and swarm rings so
-  Orbital Blades have crowds to cut through in the first minutes;
-  blades start at 3 blades, radius 85, damage 14 (was 2 / 70 / 12).
 - **Enemies:**
   - **Scrap Drone** (from 0:00) — HP 12, fast, contact 8, drops a 1-XP gem.
   - **Void Crawler** (from 0:45) — HP 36, slow and tanky, contact 12, 3 XP.
@@ -94,7 +101,7 @@ Phaser is loaded as a classic script (a global) in `index.html`; only
 our own code is ES modules. Every import is a full relative path with
 the `.js` extension. No build step — push `docs/` and Pages serves it.
 
-## What's not in V1 (ideas for later)
+## Ideas for later
 
 More weapons / evolutions, more enemy types, multiple heroes, meta
 progression between runs, save-to-localStorage for builds, mobile

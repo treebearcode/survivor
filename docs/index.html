@@ -51,18 +51,15 @@
 
 <script>
   // Start the game once Phaser is available.
-  // main.js defines window.__startSurvivor() but does NOT auto-start on
-  // its own — this is the one place that decides when to boot, same
-  // handshake as before.
+  // main.js defines window.__startSurvivor() but does NOT auto-start —
+  // this is the one place that decides when to boot.
   //
-  // One timing change vs the old single-file build, and the reason for
-  // it: <script type="module"> is deferred, so it runs AFTER this
-  // classic inline script would have run during parsing. Waiting for
-  // DOMContentLoaded (which fires after deferred modules) is what
-  // makes window.__startSurvivor exist by the time we call it.
-  // main.js also runs the same start() and sets booted=true, so this
-  // handler no-ops if the game is already running — the game is
-  // created exactly once either way.
+  // <script type="module"> is deferred, so it runs after this classic
+  // inline script during parsing. Waiting for DOMContentLoaded (which
+  // fires after deferred modules) is what makes window.__startSurvivor
+  // exist by the time we call it. main.js also runs the same start()
+  // and sets booted=true, so this handler no-ops if the game is
+  // already running — the game is created exactly once either way.
   document.addEventListener("DOMContentLoaded", function () {
     function start() {
       if (window.__survivorBoot.booted) return;

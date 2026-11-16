@@ -52,8 +52,8 @@ export function blasterStats(level) {
   };
 }
 // Blades: damage up, +1 blade at 3 and 5, wider orbit, faster spin.
-// V1.1: starts with 3 blades at radius 85 (was 2 at 70) — at level 1
-// the orbit has to be worth picking up before the player is surrounded.
+// Starts with 3 blades — the orbit has to be worth picking up
+// before the player is surrounded.
 export function bladeStats(level) {
   return {
     dmg: 14 + (level - 1) * 3,                 // 14, 17, 20, 23, 26

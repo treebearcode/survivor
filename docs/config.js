@@ -19,12 +19,12 @@ export const CONFIG = {
   playerRadius: 16,
   invulnSec: 0.6,         // i-frames after a hit
   pickupRadius: 70,       // magnet radius for XP gems, at start
-  spawnStartSec: 0.9,     // spawn interval at 0:00 (V1.1: was 1.2 — too sparse early)
+  spawnStartSec: 0.9,     // spawn interval at 0:00
   spawnEndSec: 0.35,      // spawn interval at 4:30 (and after)
   spawnEndAtSec: 270,     // 4:30 — interval stops shrinking here
-  spawnBatchEverySec: 75, // +1 enemy per batch every 75s, max 4 (V1.1: was 90)
+  spawnBatchEverySec: 75, // +1 enemy per batch every 75s, max 4
   spawnMaxBatch: 4,
-  swarmFirstSec: 30,      // V1.1: first swarm ring at 0:30, then every 40s
+  swarmFirstSec: 30,      // first swarm ring at 0:30, then every 40s
   swarmEverySec: 40,
   swarmCount: 10,         // drones in each ring, closing in on the player
   hpScalePerMin: 0.35,    // enemy HP x (1 + elapsed/60 * 0.35)

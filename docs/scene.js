@@ -118,8 +118,7 @@ export class SurvivorScene extends Phaser.Scene {
       (bullet, enemy) => this.onBulletHitEnemy(bullet, enemy));
     // NOTE: overlap callbacks receive (object1, object2) in the order
     // the objects were passed — enemies first here, so the first
-    // argument IS the enemy. (Getting this backwards was a real bug
-    // caught in review: the player would have been passed as "enemy".)
+    // argument IS the enemy. Do not swap the order.
     this.physics.add.overlap(this.enemies, this.player,
       (enemy) => this.onEnemyTouchPlayer(enemy));
     this.physics.add.overlap(this.enemyBullets, this.player,
@@ -399,7 +398,7 @@ export class SurvivorScene extends Phaser.Scene {
       for (let i = 0; i < batch; i++) this.spawnEnemy();
     }
 
-    // Swarm rings (V1.1): every 40s a ring of drones closes in on the
+    // Swarm rings: every 40s a ring of drones closes in on the
     // player — the surrounded moments Orbital Blades are built for.
     if (this.elapsed >= this.nextSwarmAt) {
       this.nextSwarmAt += CONFIG.swarmEverySec;
@@ -772,8 +771,8 @@ export class SurvivorScene extends Phaser.Scene {
 
   onBladeHitEnemy(blade, enemy) {
     if (!enemy.active || !this.weapons.blades) return;
-    // One hit per enemy per 250ms (V1.1: was 350) — without this, a
-    // blade sitting on an enemy would damage it every single frame.
+    // One hit per enemy per 250ms — without this, a blade sitting on
+    // an enemy would damage it every single frame.
     const now = this.time.now;
     if (now - enemy.lastBladeHit < 250) return;
     enemy.lastBladeHit = now;
