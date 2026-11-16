@@ -243,9 +243,9 @@ export class SurvivorScene extends Phaser.Scene {
   }
 
   // --- Overlays: title / level-up / pause / game over / victory. ---
-  // Each is a container, hidden until needed. Buttons are Phaser
-  // containers with setInteractive, so clicks work on desktop and
-  // touch alike. Keyboard shortcuts are handled in update().
+  // Each is a container, hidden until needed. Level-up cards take
+  // clicks on their background rectangle, so clicks work on desktop
+  // and touch alike. Keyboard shortcuts are handled in update().
   createOverlays() {
     // Title.
     this.titleBox = this.add.container(CONFIG.width / 2, CONFIG.height / 2)
@@ -1006,12 +1006,14 @@ export class SurvivorScene extends Phaser.Scene {
     this.levelUpOptions.forEach((opt, i) => {
       const cx = 200 + i * 280, cy = 280;
       const card = this.add.container(cx, cy);
-      card.setSize(240, 190);
-      card.setInteractive({ useHandCursor: true });
-      card.on("pointerdown", () => this.pickLevelUp(i));
+      const bg = this.add.rectangle(0, 0, 240, 190, 0x0a1a3a, 0.95)
+        .setStrokeStyle(2, 0x2de2ff, 0.9)
+        .setInteractive({ useHandCursor: true });
+      bg.on("pointerdown", () => this.pickLevelUp(i));
+      bg.on("pointerover", () => bg.setFillStyle(0x14335f, 0.95));
+      bg.on("pointerout", () => bg.setFillStyle(0x0a1a3a, 0.95));
       card.add([
-        this.add.rectangle(0, 0, 240, 190, 0x0a1a3a, 0.95)
-          .setStrokeStyle(2, 0x2de2ff, 0.9),
+        bg,
         this.add.text(0, -72, opt.title, {
           fontSize: "17px", color: "#ffffff", fontStyle: "bold",
           wordWrap: { width: 210 }, align: "center",
