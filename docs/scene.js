@@ -157,7 +157,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.damageNumbers = [];
     for (let i = 0; i < 24; i++) {
       const t = this.add.text(0, 0, "", {
-        fontSize: "13px", color: "#ffffff", fontStyle: "bold",
+        fontSize: "15px", color: "#ffd23f", fontStyle: "bold",
       }).setDepth(25).setStroke("#000000", 3).setVisible(false);
       this.damageNumbers.push(t);
     }
@@ -166,8 +166,8 @@ export class SurvivorScene extends Phaser.Scene {
     this.deathParticles = this.add.particles(0, 0, "star", {
       emitting: false,
       speed: { min: 60, max: 220 },
-      lifespan: 450,
-      scale: { start: 0.9, end: 0 },
+      lifespan: 600,
+      scale: { start: 1.1, end: 0 },
       tint: [0x2de2ff, 0xffd23f, 0xff2e63],
     });
 
@@ -405,7 +405,6 @@ export class SurvivorScene extends Phaser.Scene {
 
     this.movePlayer(dt);
     this.updateEnemies(time, dt);
-    this.separateEnemies();
     this.updateWeapons(time, dt);
     this.updateGems(dt);
     this.updateBullets(dt);
@@ -586,6 +585,28 @@ export class SurvivorScene extends Phaser.Scene {
         vx = nx * e.speed; vy = ny * e.speed;
       }
 
+      // Separation: push away from overlapping neighbours, as velocity
+      // rather than a position shove — enemies slide around each other
+      // instead of jamming. (A position shove via body.reset() zeroes
+      // velocity, which froze overlapping mobs in place.) Bosses skip
+      // this: they plough through the crowd.
+      if (!e.isBoss) {
+        const ra = ENEMY_TYPES[e.eType].radius * (e.isElite ? CONFIG.eliteScale : 1);
+        this.enemies.getChildren().forEach((o) => {
+          if (o === e || !o.active || o.isBoss) return;
+          const rb = ENEMY_TYPES[o.eType].radius * (o.isElite ? CONFIG.eliteScale : 1);
+          const minD = ra + rb;
+          const sx = e.x - o.x, sy = e.y - o.y;
+          const d2 = sx * sx + sy * sy;
+          if (d2 >= minD * minD) return;
+          const dist = Math.sqrt(d2);
+          const nx = dist > 0 ? sx / dist : 1, ny = dist > 0 ? sy / dist : 0;
+          const push = (1 - dist / minD) * 140; // up to 140 px/s at full overlap
+          vx += nx * push;
+          vy += ny * push;
+        });
+      }
+
       // Nova-pulse knockback decays over ~0.25s on top of steering.
       if (e.knockT > 0) {
         vx += e.knockVX; vy += e.knockVY;
@@ -601,33 +622,6 @@ export class SurvivorScene extends Phaser.Scene {
   // distance first, so pairs that aren't touching cost almost nothing.
   // body.reset() moves the physics body with the sprite; velocity is
   // re-set from steering next frame anyway.
-  separateEnemies() {
-    const list = this.enemies.getChildren();
-    for (let i = 0; i < list.length; i++) {
-      const a = list[i];
-      if (!a.active || a.isBoss) continue;
-      const ra = ENEMY_TYPES[a.eType].radius * (a.isElite ? CONFIG.eliteScale : 1);
-      for (let j = i + 1; j < list.length; j++) {
-        const b = list[j];
-        if (!b.active || b.isBoss) continue;
-        const rb = ENEMY_TYPES[b.eType].radius * (b.isElite ? CONFIG.eliteScale : 1);
-        const minD = ra + rb;
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 >= minD * minD) continue;
-        const dist = Math.sqrt(d2);
-        const nx = dist > 0 ? dx / dist : 1, ny = dist > 0 ? dy / dist : 0;
-        const push = (minD - dist) / 2;
-        a.body.reset(
-          Phaser.Math.Clamp(a.x - nx * push, 20, CONFIG.worldWidth - 20),
-          Phaser.Math.Clamp(a.y - ny * push, 20, CONFIG.worldHeight - 20));
-        b.body.reset(
-          Phaser.Math.Clamp(b.x + nx * push, 20, CONFIG.worldWidth - 20),
-          Phaser.Math.Clamp(b.y + ny * push, 20, CONFIG.worldHeight - 20));
-      }
-    }
-  }
-
   fireEnemyBullet(x, y, nx, ny, speed, dmg) {
     const b = this.enemyBullets.create(x, y, "bullet-enemy");
     b.setDepth(3);
@@ -761,8 +755,8 @@ export class SurvivorScene extends Phaser.Scene {
     if (enemy.hp <= 0) this.killEnemy(enemy);
   }
 
-  // Floating damage number: first hidden pool text, up ~28px and faded
-  // over ~450ms. If the whole pool is busy, skip silently.
+  // Floating damage number: first hidden pool text, up ~32px and faded
+  // over ~600ms. If the whole pool is busy, skip silently.
   showDamageNumber(x, y, amount) {
     const t = this.damageNumbers.find((n) => !n.visible);
     if (!t) return;
@@ -770,7 +764,7 @@ export class SurvivorScene extends Phaser.Scene {
     t.setPosition(x + Phaser.Math.Between(-8, 8), y - 10);
     t.setAlpha(1).setVisible(true);
     this.tweens.add({
-      targets: t, y: t.y - 28, alpha: 0, duration: 450,
+      targets: t, y: t.y - 32, alpha: 0, duration: 600,
       onComplete: () => t.setVisible(false),
     });
   }
@@ -794,7 +788,7 @@ export class SurvivorScene extends Phaser.Scene {
     }
     this.kills++;
     const x = enemy.x, y = enemy.y;
-    this.deathParticles.explode(10, x, y);
+    this.deathParticles.explode(14, x, y);
     // XP gem: elites drop a 10, everyone else their type value.
     // It pops in from half size over 120ms.
     const gem = this.gems.create(x, y, "gem-" + enemy.xpValue);
