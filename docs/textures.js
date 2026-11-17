@@ -39,6 +39,11 @@ export function makeDroneTexture(scene) {
   const g = scene.make.graphics({ x: 0, y: 0, add: false });
   g.fillStyle(0x8a94a6, 1);                 // scrap-grey hull
   g.fillPoints([{ x: 16, y: 2 }, { x: 30, y: 16 }, { x: 16, y: 30 }, { x: 2, y: 16 }], true);
+  // Hostile red outline: enemies always read as danger, never as loot.
+  g.lineStyle(3, 0xff2e63, 1);
+  g.beginPath();
+  g.moveTo(16, 2); g.lineTo(30, 16); g.lineTo(16, 30); g.lineTo(2, 16);
+  g.closePath(); g.strokePath();
   g.fillStyle(0xff6b35, 1);                 // rust-orange core
   g.fillCircle(16, 16, 6);
   g.fillStyle(0x1a1a1a, 1);
@@ -53,10 +58,13 @@ export function makeCrawlerTexture(scene) {
   const g = scene.make.graphics({ x: 0, y: 0, add: false });
   g.fillStyle(0x9b5de5, 1);                 // void-purple blob
   g.fillCircle(22, 22, 18);
+  // Hostile red outline: enemies always read as danger, never as loot.
+  g.lineStyle(3, 0xff2e63, 1);
+  g.strokeCircle(22, 22, 18);
   g.fillStyle(0x6d28a8, 1);
   g.fillCircle(14, 16, 7);
   g.fillCircle(30, 28, 6);
-  g.fillStyle(0xf15bb5, 1);                 // pink eyes
+  g.fillStyle(0xff2e63, 1);                 // angry red eyes
   g.fillCircle(16, 20, 3);
   g.fillCircle(28, 20, 3);
   g.fillStyle(0x1a1a1a, 1);
@@ -72,6 +80,11 @@ export function makeSpitterTexture(scene) {
   const g = scene.make.graphics({ x: 0, y: 0, add: false });
   g.fillStyle(0x2ec4b6, 1);                 // teal diamond
   g.fillPoints([{ x: 17, y: 1 }, { x: 33, y: 17 }, { x: 17, y: 33 }, { x: 1, y: 17 }], true);
+  // Hostile red outline: enemies always read as danger, never as loot.
+  g.lineStyle(3, 0xff2e63, 1);
+  g.beginPath();
+  g.moveTo(17, 1); g.lineTo(33, 17); g.lineTo(17, 33); g.lineTo(1, 17);
+  g.closePath(); g.strokePath();
   g.fillStyle(0x0f766e, 1);
   g.fillCircle(17, 17, 8);
   g.fillStyle(0xffffff, 1);                 // one big eye — it aims
@@ -152,6 +165,43 @@ export function makePickupTexture(scene, key, color, cross) {
   if (cross) { g.fillRect(12, 6, 4, 16); g.fillRect(6, 12, 16, 4); }
   else { g.fillRect(6, 6, 6, 16); g.fillRect(16, 6, 6, 10); } // magnet: a U
   g.generateTexture(key, 28, 28);
+  g.destroy();
+  return key;
+}
+export function makeMissileTexture(scene) {
+  const key = "missile";
+  if (scene.textures.exists(key)) return key;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  // Seeker missile: a gold dart with an orange body, nose up.
+  g.fillStyle(0xffd23f, 1);
+  g.fillPoints([{ x: 10, y: 1 }, { x: 16, y: 14 }, { x: 10, y: 11 }, { x: 4, y: 14 }], true);
+  g.fillStyle(0xff6b35, 1);
+  g.fillRect(7, 12, 6, 5);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(10, 5, 2);
+  g.generateTexture(key, 20, 20);
+  g.destroy();
+  return key;
+}
+export function makeMineTexture(scene) {
+  const key = "mine";
+  if (scene.textures.exists(key)) return key;
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  // Star mine: a dark spiked ball with a hot orange core.
+  g.fillStyle(0x2a2a3a, 1);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const x1 = 16 + Math.cos(a) * 9, y1 = 16 + Math.sin(a) * 9;
+    const x2 = 16 + Math.cos(a + 0.25) * 9, y2 = 16 + Math.sin(a + 0.25) * 9;
+    const x3 = 16 + Math.cos(a + 0.125) * 15, y3 = 16 + Math.sin(a + 0.125) * 15;
+    g.fillTriangle(x1, y1, x2, y2, x3, y3);
+  }
+  g.fillCircle(16, 16, 10);
+  g.fillStyle(0xff6b35, 1);
+  g.fillCircle(16, 16, 5);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(16, 16, 2);
+  g.generateTexture(key, 32, 32);
   g.destroy();
   return key;
 }

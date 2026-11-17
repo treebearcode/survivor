@@ -62,4 +62,6 @@ export const WEAPONS = {
   blaster: { name: "Pulse Blaster",  desc: "Auto-fires at the nearest enemy." },
   blades:  { name: "Orbital Blades", desc: "Energy blades orbit you and slice on contact." },
   nova:    { name: "Nova Pulse",     desc: "A radial burst that knocks enemies back." },
+  seeker:  { name: "Seeker Swarm",   desc: "Fires homing missiles that chase enemies." },
+  mines:   { name: "Star Mines",     desc: "Drops mines behind you that explode on contact." },
 };

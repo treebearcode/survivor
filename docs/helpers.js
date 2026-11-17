@@ -71,9 +71,33 @@ export function novaStats(level) {
     knockback: 260,                            // px/s shove away from the player
   };
 }
+// Seeker Swarm: homing missiles — they never miss, but fire slower
+// than the blaster. Damage up, faster fire, +1 missile at 3 and 5.
+export function seekerStats(level) {
+  return {
+    dmg: 12 + (level - 1) * 3,                 // 12, 15, 18, 21, 24
+    intervalMs: 900 - (level - 1) * 75,        // 900 .. 600 ms
+    missiles: 1 + Math.floor((level - 1) / 2), // 1, 1, 2, 2, 3
+    bulletSpeed: 380,
+  };
+}
+// Star Mines: a mine drops behind Nova on a timer and explodes when
+// an enemy touches it, damaging everything in the blast radius.
+// Damage and radius up, faster drops, more mines on the field.
+export function mineStats(level) {
+  return {
+    dmg: 25 + (level - 1) * 7,                 // 25, 32, 39, 46, 53
+    intervalMs: 2200 - (level - 1) * 200,      // 2200 .. 1400 ms
+    maxMines: 3 + (level - 1),                 // 3 .. 7
+    radius: 90 + (level - 1) * 10,             // 90 .. 130
+    lifeMs: 25000,                             // an untriggered mine fades after 25s
+  };
+}
 export function weaponStats(id, level) {
   if (id === "blaster") return blasterStats(level);
   if (id === "blades") return bladeStats(level);
+  if (id === "seeker") return seekerStats(level);
+  if (id === "mines") return mineStats(level);
   return novaStats(level);
 }
 

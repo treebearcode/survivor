@@ -11,7 +11,8 @@ and a nova pulse — survive 5:00, then defeat the Void Dreadnought.
   fire on their own, no aiming.
 - 5:00 run, then the Void Dreadnought boss (HP 1200, with a HP bar) —
   kill it to win.
-- 3 weapons, each up to Lv 5: Pulse Blaster, Orbital Blades, Nova Pulse.
+- 5 weapons, each up to Lv 5: Pulse Blaster, Orbital Blades, Nova Pulse,
+  Seeker Swarm, Star Mines.
 - 3 enemy types (Scrap Drone, Void Crawler, Spitter) + gold elites
   from 2:00, and swarm rings of 10 drones every 40s from 0:30.
 - XP gems, level-up cards (pick 1 of 3), plus stat upgrades
@@ -20,6 +21,10 @@ and a nova pulse — survive 5:00, then defeat the Void Dreadnought.
   and best level saved in localStorage.
 - Feel: enemies push apart so hordes read as a crowd, damage numbers,
   death sparks, hit knockback, screen shake, and faster gem pickup.
+  Enemies animate as they move (drones rock, crawlers squash and
+  stretch, spitters pulse), wear a red hostile outline, and pickups
+  pulse gently so loot reads as friendly. Restarting after a game over
+  fully resets the run.
 - All art is procedural and all sounds are WebAudio — no external assets.
 - ES modules in `docs/`, no build step — Pages serves it as-is.
 
@@ -68,6 +73,10 @@ fallback in `docs/index.html`), so the game works offline once loaded.
     and slice on contact. Lv 5: 5 blades, damage 26.
   - **Nova Pulse** — a radial burst every 4s → 2.4s, damage 18 → 34,
     radius 140 → 220, with knockback.
+  - **Seeker Swarm** — homing missiles that chase the nearest enemy.
+    Lv 5: damage 24, 3 missiles, every 0.6s.
+  - **Star Mines** — drops mines behind you that explode on contact.
+    Lv 5: damage 53, blast radius 130, up to 7 mines.
 - **Level-up cards also include:** +20 max HP and heal 20, +15% move
   speed, +20% damage (all weapons), +15% magnet radius, +1 armour
   (contact hits deal 1 less, never below 3). Maxed weapons are never

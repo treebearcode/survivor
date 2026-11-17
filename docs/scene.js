@@ -8,9 +8,9 @@
 // GitHub Pages needs no build step — it serves these files as-is.
 
 import { CONFIG, ENEMY_TYPES, WEAPONS } from './config.js';
-import { xpForLevel, spawnIntervalSec, spawnBatchSize, enemyHpScale, unlockedEnemyTypes, damageAfterArmour, blasterStats, bladeStats, novaStats, formatTime } from './helpers.js';
+import { xpForLevel, spawnIntervalSec, spawnBatchSize, enemyHpScale, unlockedEnemyTypes, damageAfterArmour, blasterStats, bladeStats, novaStats, seekerStats, mineStats, formatTime } from './helpers.js';
 import { sfx } from './sound.js';
-import { makePlayerTexture, makeDroneTexture, makeCrawlerTexture, makeSpitterTexture, makeBossTexture, makeGemTexture, makeBulletTexture, makeBladeTexture, makePickupTexture, makeStarTexture, makeNebulaTexture, makeRingTexture } from './textures.js';
+import { makePlayerTexture, makeDroneTexture, makeCrawlerTexture, makeSpitterTexture, makeBossTexture, makeGemTexture, makeBulletTexture, makeBladeTexture, makeMissileTexture, makeMineTexture, makePickupTexture, makeStarTexture, makeNebulaTexture, makeRingTexture } from './textures.js';
 
 // ---------------------------------------------------------------------------
 // 5. SurvivorScene — the one scene. create() builds the world once;
@@ -40,6 +40,8 @@ export class SurvivorScene extends Phaser.Scene {
     this.nextSwarmAt = CONFIG.swarmFirstSec;
     this.blasterTimer = 0;
     this.novaTimer = 0;
+    this.seekerTimer = 0;
+    this.mineTimer = 0;
     this.bladeAngle = 0;
     this.boss = null;
     this.bossSpawned = false;
@@ -53,6 +55,10 @@ export class SurvivorScene extends Phaser.Scene {
   }
 
   create() {
+    // Fresh run state: scene.restart() re-runs create() but NOT the
+    // constructor, so without this a restart kept the dead run's
+    // HP, level, perks and scaling.
+    this.resetRunState();
     // --- Textures (all procedural) ---
     makePlayerTexture(this);
     makeDroneTexture(this);
@@ -63,6 +69,8 @@ export class SurvivorScene extends Phaser.Scene {
     makeBulletTexture(this, "bullet-player", 0x2de2ff);
     makeBulletTexture(this, "bullet-enemy", 0xff2e63);
     makeBladeTexture(this);
+    makeMissileTexture(this);
+    makeMineTexture(this);
     makePickupTexture(this, "pickup-health", 0x4ade80, true);
     makePickupTexture(this, "pickup-magnet", 0x3b82f6, false);
     makeStarTexture(this);
@@ -113,6 +121,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.gems = this.physics.add.group();
     this.pickups = this.physics.add.group();
     this.blades = this.physics.add.group();
+    this.mines = this.physics.add.group();
 
     // --- Overlaps (group vs group / group vs player) ---
     this.physics.add.overlap(this.playerBullets, this.enemies,
@@ -128,6 +137,8 @@ export class SurvivorScene extends Phaser.Scene {
       (player, bullet) => this.onEnemyBulletHit(bullet));
     this.physics.add.overlap(this.blades, this.enemies,
       (blade, enemy) => this.onBladeHitEnemy(blade, enemy));
+    this.physics.add.overlap(this.mines, this.enemies,
+      (mine, enemy) => this.onMineTouch(mine, enemy));
     this.physics.add.overlap(this.player, this.gems,
       (player, gem) => this.onGemCollect(gem));
     this.physics.add.overlap(this.player, this.pickups,
@@ -349,8 +360,44 @@ export class SurvivorScene extends Phaser.Scene {
     this.drawHud();
   }
 
+  // Every number that defines a run, back to its starting value.
+  // Best time/level are NOT run state — they live in localStorage
+  // and survive on purpose.
+  resetRunState() {
+    this.elapsed = 0;
+    this.kills = 0;
+    this.level = 1;
+    this.xp = 0;
+    this.xpNext = xpForLevel(1);
+    this.hp = CONFIG.playerMaxHp;
+    this.maxHp = CONFIG.playerMaxHp;
+    this.weapons = {};
+    this.damageMult = 1;
+    this.speedMult = 1;
+    this.magnetMult = 1;
+    this.armour = 0;
+    this.invulnUntil = 0;
+    this.spawnTimer = 0;
+    this.nextSwarmAt = CONFIG.swarmFirstSec;
+    this.blasterTimer = 0;
+    this.novaTimer = 0;
+    this.seekerTimer = 0;
+    this.mineTimer = 0;
+    this.bladeAngle = 0;
+    this.boss = null;
+    this.bossSpawned = false;
+    this.bossDroneTimer = 0;
+    this.bossBurstTimer = 0;
+    this.levelUpQueue = 0;
+    this.levelUpOptions = [];
+    this.levelUpCardBgs = [];
+  }
+
   startRun() {
     this.titleBox.setVisible(false);
+    // Fresh run, even after a game over: everything resets, not
+    // just the weapons.
+    this.resetRunState();
     // Starting weapon: the Pulse Blaster, Lv 1. Every other weapon
     // comes from level-up cards (max 3 owned).
     this.weapons = { blaster: 1 };
@@ -499,6 +546,8 @@ export class SurvivorScene extends Phaser.Scene {
     e.speed = def.speed;
     e.xpValue = isElite ? 10 : def.xp;
     e.shootTimer = Phaser.Math.FloatBetween(0, 1);
+    e.wobblePhase = Math.random() * Math.PI * 2;
+    e.baseScale = isElite ? CONFIG.eliteScale : 1;
     e.lastBladeHit = 0;
     e.knockT = 0; e.knockVX = 0; e.knockVY = 0;
     e.body.setCircle(def.radius, (e.width - def.radius * 2) / 2, (e.height - def.radius * 2) / 2);
@@ -552,6 +601,8 @@ export class SurvivorScene extends Phaser.Scene {
     b.speed = CONFIG.bossSpeed;
     b.xpValue = 0;
     b.shootTimer = 0;
+    b.wobblePhase = 0;
+    b.baseScale = 1;
     b.lastBladeHit = 0;
     b.knockT = 0; b.knockVX = 0; b.knockVY = 0;
     b.body.setCircle(40, 8, 8);
@@ -635,6 +686,23 @@ export class SurvivorScene extends Phaser.Scene {
         e.knockT -= dt;
         e.knockVX *= 0.88; e.knockVY *= 0.88;
       }
+      // Movement animation: each type moves differently, so the
+      // eye reads them as alive — drones rock, crawlers squash
+      // and stretch as they crawl, spitters pulse, the boss breathes.
+      const wob = time / 1000 + (e.wobblePhase || 0);
+      const base = e.baseScale || 1;
+      if (e.isBoss) {
+        e.setScale(base * (1 + 0.05 * Math.sin(wob * 1.5)));
+        e.setAngle(Math.sin(wob) * 4);
+      } else if (e.eType === "crawler") {
+        const s = Math.sin(wob * 6);
+        e.setScale(base * (1 + 0.08 * s), base * (1 - 0.08 * s));
+      } else if (e.eType === "spitter") {
+        const s = 1 + 0.07 * Math.sin(wob * 4);
+        e.setScale(base * s, base * s);
+      } else {
+        e.setAngle(Math.sin(wob * 2.5) * 18);
+      }
       e.setVelocity(vx, vy);
     });
   }
@@ -700,6 +768,55 @@ export class SurvivorScene extends Phaser.Scene {
       if (this.novaTimer >= st.cooldownMs) {
         this.novaTimer = 0;
         this.fireNovaPulse(st);
+      }
+    }
+
+    // Seeker Swarm: homing missiles at the nearest enemy.
+    if (this.weapons.seeker) {
+      this.seekerTimer += dt * 1000;
+      const st = seekerStats(this.weapons.seeker);
+      if (this.seekerTimer >= st.intervalMs) {
+        this.seekerTimer = 0;
+        const target = this.nearestEnemy(800);
+        if (target) {
+          for (let i = 0; i < st.missiles; i++) {
+            const a = Math.atan2(target.y - this.player.y, target.x - this.player.x)
+              + (i - (st.missiles - 1) / 2) * 0.3;
+            const m = this.playerBullets.create(this.player.x, this.player.y, "missile");
+            m.setDepth(3);
+            m.dmg = st.dmg;
+            m.life = 2500;
+            m.homing = true;
+            m.target = target;
+            m.body.setCircle(7, 3, 3);
+            m.setVelocity(Math.cos(a) * st.bulletSpeed, Math.sin(a) * st.bulletSpeed);
+            m.setRotation(a + Math.PI / 2);
+          }
+          sfx.shoot();
+        }
+      }
+    }
+
+    // Star Mines: drop a mine behind Nova on a timer, up to the
+    // level cap. Old untriggered mines fade after 25s.
+    if (this.weapons.mines) {
+      this.mineTimer += dt * 1000;
+      const st = mineStats(this.weapons.mines);
+      this.mines.getChildren().forEach((m) => {
+        if (m.active && time - m.bornAt > st.lifeMs) m.destroy();
+      });
+      if (this.mineTimer >= st.intervalMs &&
+          this.mines.getChildren().length < st.maxMines) {
+        this.mineTimer = 0;
+        const m = this.mines.create(this.player.x, this.player.y, "mine");
+        m.setDepth(2);
+        m.dmg = st.dmg;
+        m.radius = st.radius;
+        m.bornAt = time;
+        m.armedAt = time + 500;
+        m.body.setCircle(12, 4, 4);
+        m.setScale(0.5);
+        this.tweens.add({ targets: m, scale: 1, duration: 150 });
       }
     }
   }
@@ -827,6 +944,43 @@ export class SurvivorScene extends Phaser.Scene {
     p.setDepth(2);
     p.kind = kind;
     p.body.setCircle(12, 2, 2);
+    // Pickups gently pulse, so they read as friendly loot at a
+    // glance — enemies wobble and rock instead, and wear the red outline.
+    this.tweens.add({
+      targets: p, scaleX: 1.18, scaleY: 1.18,
+      duration: 450, yoyo: true, repeat: -1,
+    });
+  }
+
+  onMineTouch(mine, enemy) {
+    if (!mine.active || !enemy.active) return;
+    if (this.time.now < mine.armedAt) return; // freshly dropped: not live yet
+    this.explodeMine(mine);
+  }
+
+  explodeMine(mine) {
+    const x = mine.x, y = mine.y, r = mine.radius, dmg = mine.dmg;
+    mine.destroy();
+    sfx.nova();
+    this.cameras.main.shake(100, 0.003);
+    const ring = this.add.image(x, y, "ring").setDepth(7);
+    ring.setScale(0.3).setTint(0xff6b35);
+    this.tweens.add({
+      targets: ring, scale: r / 64, alpha: 0,
+      duration: 300, onComplete: () => ring.destroy(),
+    });
+    this.enemies.getChildren().forEach((e) => {
+      if (!e.active) return;
+      const dx = e.x - x, dy = e.y - y;
+      const dist = Math.hypot(dx, dy);
+      if (dist <= r + 20) {
+        const d = dist || 1;
+        e.knockVX = (dx / d) * 220;
+        e.knockVY = (dy / d) * 220;
+        e.knockT = 0.2;
+        this.damageEnemy(e, dmg);
+      }
+    });
   }
 
   hurtPlayer(rawDmg, time) {
@@ -934,7 +1088,18 @@ export class SurvivorScene extends Phaser.Scene {
       group.getChildren().forEach((b) => {
         if (!b.active) return;
         b.life -= dt * 1000;
-        if (b.life <= 0) b.destroy();
+        if (b.life <= 0) { b.destroy(); return; }
+        // Seeker missiles steer toward their target; if it died,
+        // they fly straight on.
+        if (b.homing) {
+          const t = b.target;
+          if (t && t.active) {
+            const a = Math.atan2(t.y - b.y, t.x - b.x);
+            const sp = Math.hypot(b.body.velocity.x, b.body.velocity.y) || 380;
+            b.setVelocity(Math.cos(a) * sp, Math.sin(a) * sp);
+            b.setRotation(a + Math.PI / 2);
+          }
+        }
       });
     });
   }
@@ -1004,6 +1169,16 @@ export class SurvivorScene extends Phaser.Scene {
       const s = bladeStats(level);
       return s.count + " blades, orbit radius " + s.radius + ", damage " + s.dmg + ".";
     }
+    if (id === "seeker") {
+      const s = seekerStats(level);
+      return s.missiles + " homing missile" + (s.missiles > 1 ? "s" : "") +
+        ", damage " + s.dmg + ", every " + (s.intervalMs / 1000).toFixed(2) + "s.";
+    }
+    if (id === "mines") {
+      const s = mineStats(level);
+      return "Damage " + s.dmg + ", blast radius " + s.radius +
+        ", up to " + s.maxMines + " mines.";
+    }
     const s = novaStats(level);
     return "Damage " + s.dmg + ", radius " + s.radius +
       ", every " + (s.cooldownMs / 1000).toFixed(1) + "s.";
@@ -1063,6 +1238,8 @@ export class SurvivorScene extends Phaser.Scene {
       this.weapons[opt.weapon] = 1;
       if (opt.weapon === "blades") this.ensureBladeCount(bladeStats(1).count);
       if (opt.weapon === "nova") this.novaTimer = 0;
+      if (opt.weapon === "seeker") this.seekerTimer = 0;
+      if (opt.weapon === "mines") this.mineTimer = 0;
     } else if (opt.kind === "upgrade") {
       this.weapons[opt.weapon]++;
       if (opt.weapon === "blades") this.ensureBladeCount(bladeStats(this.weapons.blades).count);
