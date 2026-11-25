@@ -54,6 +54,15 @@ export class SurvivorScene extends Phaser.Scene {
     this.bestLevel = 0;
   }
 
+  preload() {
+    // Menu loop: the same clip under two keys, so the crossfade has
+    // two independent video elements (one element can't play the
+    // same clip twice at once). noAudio = true: silent, so it may
+    // autoplay with no user gesture.
+    this.load.video("menu-bg-a", "assets/menu-loop.mp4", true);
+    this.load.video("menu-bg-b", "assets/menu-loop.mp4", true);
+  }
+
   create() {
     // Fresh run state: scene.restart() re-runs create() but NOT the
     // constructor, so without this a restart kept the dead run's
@@ -86,6 +95,19 @@ export class SurvivorScene extends Phaser.Scene {
     const edge = this.add.graphics().setDepth(-9);
     edge.lineStyle(4, 0x2de2ff, 0.35);
     edge.strokeRect(2, 2, CONFIG.worldWidth - 4, CONFIG.worldHeight - 4);
+
+    // Menu loop: two copies of the clip, screen-fixed behind the
+    // world (above the dark rect, below the starfield), shown only
+    // on the title screen. The clip is 1280x720, scaled to 960x540.
+    this.menuVideoA = this.add.video(CONFIG.width / 2, CONFIG.height / 2, "menu-bg-a")
+      .setScrollFactor(0).setDepth(-9).setScale(0.75);
+    this.menuVideoB = this.add.video(CONFIG.width / 2, CONFIG.height / 2, "menu-bg-b")
+      .setScrollFactor(0).setDepth(-9).setScale(0.75);
+    this.menuVideoA.setMute(true).setVisible(false);
+    this.menuVideoB.setMute(true).setVisible(false);
+    this.menuActive = null;
+    this.menuIdle = null;
+    this.menuCrossfading = false;
 
     // Starfield + nebulae: decoration only, no collision.
     for (let i = 0; i < 14; i++) {
@@ -357,7 +379,54 @@ export class SurvivorScene extends Phaser.Scene {
       ? "Best: " + formatTime(this.bestTime) + "  •  Lv " + this.bestLevel
       : "No runs yet — good hunting, salvager.");
     this.titleBox.setVisible(true);
+    this.startMenuVideo();
     this.drawHud();
+  }
+
+  // Menu loop: two copies of the clip crossfade at the loop point,
+  // so the title screen never shows a jump when the clip restarts.
+  startMenuVideo() {
+    this.stopMenuVideo();
+    this.menuActive = this.menuVideoA;
+    this.menuIdle = this.menuVideoB;
+    this.menuCrossfading = false;
+    this.menuVideoA.setAlpha(1).setVisible(true);
+    this.menuVideoB.setAlpha(0).setVisible(true);
+    this.menuVideoA.play(false);
+  }
+
+  stopMenuVideo() {
+    this.menuCrossfading = false;
+    [this.menuVideoA, this.menuVideoB].forEach((v) => {
+      if (!v) return;
+      this.tweens.killTweensOf(v);
+      v.stop();
+      v.setVisible(false);
+    });
+  }
+
+  updateMenuVideo() {
+    if (this.state !== "title" || !this.menuActive) return;
+    if (this.menuCrossfading) return;
+    const v = this.menuActive;
+    const dur = v.getDuration ? v.getDuration() : 0;
+    if (!dur || v.currentTime < dur - 1) return;
+    // Last second of the clip: fade the other copy in from the start.
+    this.menuCrossfading = true;
+    const next = this.menuIdle;
+    next.setAlpha(0).setVisible(true);
+    next.play(false);
+    this.tweens.add({
+      targets: next, alpha: 1, duration: 1000,
+      onComplete: () => {
+        this.menuActive.stop();
+        this.menuActive.setAlpha(0);
+        const old = this.menuActive;
+        this.menuActive = next;
+        this.menuIdle = old;
+        this.menuCrossfading = false;
+      },
+    });
   }
 
   // Every number that defines a run, back to its starting value.
@@ -395,6 +464,7 @@ export class SurvivorScene extends Phaser.Scene {
 
   startRun() {
     this.titleBox.setVisible(false);
+    this.stopMenuVideo();
     // Fresh run, even after a game over: everything resets, not
     // just the weapons.
     this.resetRunState();
@@ -438,6 +508,7 @@ export class SurvivorScene extends Phaser.Scene {
   update(time, delta) {
     // Keyboard shortcuts that work outside "playing".
     if (this.state === "title") {
+      this.updateMenuVideo();
       if (Phaser.Input.Keyboard.JustDown(this.keyEnter)) this.startRun();
       return;
     }

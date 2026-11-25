@@ -25,6 +25,9 @@ and a nova pulse — survive 5:00, then defeat the Void Dreadnought.
   stretch, spitters pulse), wear a red hostile outline, and pickups
   pulse gently so loot reads as friendly. Restarting after a game over
   fully resets the run.
+- Start menu: a generated 10s ambient space loop plays behind the
+  title (two copies crossfade at the loop point, so there is no
+  visible jump when it restarts).
 - All art is procedural and all sounds are WebAudio — no external assets.
 - ES modules in `docs/`, no build step — Pages serves it as-is.
 
@@ -104,6 +107,7 @@ docs/                 Source of truth AND the GitHub Pages folder — edit here
   scene.js            SurvivorScene + startSurvivor (the game itself)
   assets/
     phaser.min.js     Phaser 3.60.0, bundled locally (MIT licence, see CREDITS.md)
+    menu-loop.mp4     Generated 10s ambient space loop for the start menu
 README.md
 CREDITS.md
 ```
