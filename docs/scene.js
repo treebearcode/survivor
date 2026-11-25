@@ -118,14 +118,21 @@ export class SurvivorScene extends Phaser.Scene {
     // Video mobs (prototype): one video, hidden off-world, shared
     // as a live texture by every video drone — exactly one decoder
     // no matter how many are alive. The texture only exists once
-    // the first frame arrives, so saveTexture is retried on the
-    // video's "created" event and again at run start; until it
-    // succeeds, drones fall back to the procedural texture.
+    // the first frame arrives, so saveTexture runs on the video's
+    // "created" event and again at run start; until it succeeds,
+    // drones fall back to the procedural texture. Never call it
+    // before the first frame: saveTexture re-points the video's
+    // internal key even when there is no texture yet, so the first
+    // frame then tries to create a texture under the renamed key
+    // and crashes on the stale texture from the previous run.
+    // A previous run's video texture outlives the scene (the
+    // Texture Manager is game-global), so drop it before the new
+    // video claims the key.
+    if (this.sys.textures.exists("video-drone")) this.sys.textures.remove("video-drone");
     this.droneVideoReady = false;
     this.droneVideo = this.add.video(-2000, -2000, "video-drone-clip")
       .setLoop(true).setMute(true);
     this.droneVideo.on("created", () => this.trySaveDroneTexture());
-    this.trySaveDroneTexture();
     this.droneVideo.play(true);
 
     // Starfield + nebulae: decoration only, no collision.
@@ -407,6 +414,10 @@ export class SurvivorScene extends Phaser.Scene {
       ? "Best: " + formatTime(this.bestTime) + "  •  Lv " + this.bestLevel
       : "No runs yet — good hunting, salvager.");
     this.titleBox.setVisible(true);
+    // The toggle label is rebuilt as OFF in createOverlays, but
+    // the setting itself survives a restart — sync the label.
+    this.videoMobsText.setText("Video Mobs: " + (this.videoMobs ? "ON" : "OFF") +
+      "  (press V or click here)");
     this.startMenuVideo();
     this.drawHud();
   }
