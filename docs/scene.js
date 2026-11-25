@@ -12,6 +12,9 @@ import { xpForLevel, spawnIntervalSec, spawnBatchSize, enemyHpScale, unlockedEne
 import { sfx } from './sound.js';
 import { makePlayerTexture, makeDroneTexture, makeCrawlerTexture, makeSpitterTexture, makeBossTexture, makeGemTexture, makeBulletTexture, makeBladeTexture, makeMissileTexture, makeMineTexture, makePickupTexture, makeStarTexture, makeNebulaTexture, makeRingTexture } from './textures.js';
 
+// Video-mob prototype: the drone clip is 640x360; show it ~120px wide.
+const VIDEO_DRONE_SCALE = 120 / 640;
+
 // ---------------------------------------------------------------------------
 // 5. SurvivorScene — the one scene. create() builds the world once;
 //    update(time, delta) is the GAME LOOP, called ~60x/second.
@@ -52,6 +55,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.levelUpCardBgs = [];
     this.bestTime = 0;
     this.bestLevel = 0;
+    this.videoMobs = false; // start-menu prototype toggle (persists across restarts)
   }
 
   preload() {
@@ -61,6 +65,8 @@ export class SurvivorScene extends Phaser.Scene {
     // autoplay with no user gesture.
     this.load.video("menu-bg-a", "assets/menu-loop.mp4", true);
     this.load.video("menu-bg-b", "assets/menu-loop.mp4", true);
+    // Video-mob clip (holo-screen drone). noAudio = true: silent.
+    this.load.video("video-drone-clip", "assets/video-drone.mp4", true);
   }
 
   create() {
@@ -108,6 +114,19 @@ export class SurvivorScene extends Phaser.Scene {
     this.menuActive = null;
     this.menuIdle = null;
     this.menuCrossfading = false;
+
+    // Video mobs (prototype): one video, hidden off-world, shared
+    // as a live texture by every video drone — exactly one decoder
+    // no matter how many are alive. The texture only exists once
+    // the first frame arrives, so saveTexture is retried on the
+    // video's "created" event and again at run start; until it
+    // succeeds, drones fall back to the procedural texture.
+    this.droneVideoReady = false;
+    this.droneVideo = this.add.video(-2000, -2000, "video-drone-clip")
+      .setLoop(true).setMute(true);
+    this.droneVideo.on("created", () => this.trySaveDroneTexture());
+    this.trySaveDroneTexture();
+    this.droneVideo.play(true);
 
     // Starfield + nebulae: decoration only, no collision.
     for (let i = 0; i < 14; i++) {
@@ -175,6 +194,7 @@ export class SurvivorScene extends Phaser.Scene {
     this.keyP = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
     this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
     this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    this.keyV = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
     this.key1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
     this.key2 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
     this.key3 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE);
@@ -292,6 +312,9 @@ export class SurvivorScene extends Phaser.Scene {
     this.titleBest = this.add.text(0, 128, "", {
       fontSize: "15px", color: "#9beaff", align: "center",
     }).setOrigin(0.5, 0);
+    this.videoMobsText = this.add.text(0, 158, "Video Mobs: OFF  (press V or click here)", {
+      fontSize: "15px", color: "#9beaff",
+    }).setOrigin(0.5, 0);
     this.titleBox.add([
       titleBg,
       this.add.text(0, -160, "STARFALL SURVIVOR", {
@@ -312,6 +335,7 @@ export class SurvivorScene extends Phaser.Scene {
         fontSize: "18px", color: "#ffd23f", fontStyle: "bold",
       }).setOrigin(0.5, 0),
       this.titleBest,
+      this.videoMobsText,
     ]);
 
     // Level-up cards (built fresh each time in showLevelUp()).
@@ -360,7 +384,11 @@ export class SurvivorScene extends Phaser.Scene {
       if (this.state === "levelup") {
         const i = this.levelUpCardAt(pointer.x, pointer.y);
         if (i >= 0) this.pickLevelUp(i);
-      } else if (this.state === "title") this.startRun();
+      } else if (this.state === "title") {
+        const b = this.videoMobsText.getBounds();
+        if (b.contains(pointer.x, pointer.y)) this.toggleVideoMobs();
+        else this.startRun();
+      }
       else if (this.state === "gameover" || this.state === "victory") this.restartRun();
     });
     // Hover highlight for level-up cards, with a hand cursor.
@@ -381,6 +409,22 @@ export class SurvivorScene extends Phaser.Scene {
     this.titleBox.setVisible(true);
     this.startMenuVideo();
     this.drawHud();
+  }
+
+  // Video-mob prototype toggle (title screen only; the choice
+  // holds for the run that follows).
+  toggleVideoMobs() {
+    this.videoMobs = !this.videoMobs;
+    this.videoMobsText.setText("Video Mobs: " + (this.videoMobs ? "ON" : "OFF") +
+      "  (press V or click here)");
+  }
+
+  // Save the drone video's live texture under "video-drone" so
+  // normal sprites can use it. Only works once the first frame
+  // has arrived; safely no-ops before that.
+  trySaveDroneTexture() {
+    if (this.droneVideoReady || !this.droneVideo) return;
+    if (this.droneVideo.saveTexture("video-drone")) this.droneVideoReady = true;
   }
 
   // Menu loop: two copies of the clip crossfade at the loop point,
@@ -465,6 +509,7 @@ export class SurvivorScene extends Phaser.Scene {
   startRun() {
     this.titleBox.setVisible(false);
     this.stopMenuVideo();
+    if (this.videoMobs) this.trySaveDroneTexture();
     // Fresh run, even after a game over: everything resets, not
     // just the weapons.
     this.resetRunState();
@@ -509,6 +554,7 @@ export class SurvivorScene extends Phaser.Scene {
     // Keyboard shortcuts that work outside "playing".
     if (this.state === "title") {
       this.updateMenuVideo();
+      if (Phaser.Input.Keyboard.JustDown(this.keyV)) this.toggleVideoMobs();
       if (Phaser.Input.Keyboard.JustDown(this.keyEnter)) this.startRun();
       return;
     }
@@ -551,10 +597,13 @@ export class SurvivorScene extends Phaser.Scene {
 
     // Spawning: interval shrinks, batch grows (pure helpers, §2).
     this.spawnTimer += dt;
-    const interval = spawnIntervalSec(this.elapsed);
+    // Video-mob prototype: slower spawns, one at a time.
+    const interval = this.videoMobs
+      ? Math.max(spawnIntervalSec(this.elapsed), 1.6)
+      : spawnIntervalSec(this.elapsed);
     if (this.spawnTimer >= interval) {
       this.spawnTimer = 0;
-      const batch = spawnBatchSize(this.elapsed);
+      const batch = this.videoMobs ? 1 : spawnBatchSize(this.elapsed);
       for (let i = 0; i < batch; i++) this.spawnEnemy();
     }
 
@@ -603,7 +652,11 @@ export class SurvivorScene extends Phaser.Scene {
   // --- Spawning ---
   spawnEnemyAt(x, y, typeId, forceElite) {
     const def = ENEMY_TYPES[typeId];
-    const tex = typeId === "drone" ? "drone" : typeId === "crawler" ? "crawler" : "spitter";
+    // Video-mob prototype: drones render as the shared video
+    // texture (one decoder for all of them). Falls back to the
+    // procedural drone if the video texture isn't ready yet.
+    const isVideoDrone = this.videoMobs && typeId === "drone" && this.droneVideoReady;
+    const tex = isVideoDrone ? "video-drone" : typeId === "drone" ? "drone" : typeId === "crawler" ? "crawler" : "spitter";
     const isElite = !!forceElite ||
       (this.elapsed >= CONFIG.eliteFromSec && Math.random() < CONFIG.eliteChance);
     const e = this.enemies.create(x, y, tex);
@@ -618,11 +671,20 @@ export class SurvivorScene extends Phaser.Scene {
     e.xpValue = isElite ? 10 : def.xp;
     e.shootTimer = Phaser.Math.FloatBetween(0, 1);
     e.wobblePhase = Math.random() * Math.PI * 2;
-    e.baseScale = isElite ? CONFIG.eliteScale : 1;
+    e.baseScale = isVideoDrone ? VIDEO_DRONE_SCALE * (isElite ? CONFIG.eliteScale : 1)
+      : isElite ? CONFIG.eliteScale : 1;
     e.lastBladeHit = 0;
     e.knockT = 0; e.knockVX = 0; e.knockVY = 0;
-    e.body.setCircle(def.radius, (e.width - def.radius * 2) / 2, (e.height - def.radius * 2) / 2);
-    if (isElite) { e.setScale(CONFIG.eliteScale); e.setTint(0xffd23f); }
+    if (isVideoDrone) {
+      // The mob is a rectangle on purpose (a holo-screen), so its
+      // body is a rectangle too, sized from the displayed video.
+      e.setScale(e.baseScale);
+      e.body.setSize(e.displayWidth * 0.8, e.displayHeight * 0.8);
+      if (isElite) e.setTint(0xffd23f);
+    } else {
+      e.body.setCircle(def.radius, (e.width - def.radius * 2) / 2, (e.height - def.radius * 2) / 2);
+      if (isElite) { e.setScale(CONFIG.eliteScale); e.setTint(0xffd23f); }
+    }
     return e;
   }
 
@@ -636,6 +698,12 @@ export class SurvivorScene extends Phaser.Scene {
       roll -= ENEMY_TYPES[k].weight;
       if (roll <= 0) { typeId = k; break; }
     }
+    // Video-mob prototype: at most 8 video drones alive at once.
+    if (this.videoMobs && typeId === "drone") {
+      let n = 0;
+      this.enemies.getChildren().forEach((c) => { if (c.active && c.eType === "drone") n++; });
+      if (n >= 8) return;
+    }
     // Off-screen ring around the player (viewport diagonal is ~555px,
     // so 620px out is safely off-screen), clamped to the world.
     const angle = Math.random() * Math.PI * 2;
@@ -647,8 +715,10 @@ export class SurvivorScene extends Phaser.Scene {
 
   spawnSwarm() {
     // A ring of drones around the player, just off-screen, all closing in.
-    for (let i = 0; i < CONFIG.swarmCount; i++) {
-      const a = (i / CONFIG.swarmCount) * Math.PI * 2;
+    // Video-mob prototype: 3-drone rings instead of 10.
+    const count = this.videoMobs ? 3 : CONFIG.swarmCount;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
       const dist = 560 + Math.random() * 60;
       const x = Phaser.Math.Clamp(this.player.x + Math.cos(a) * dist, 20, CONFIG.worldWidth - 20);
       const y = Phaser.Math.Clamp(this.player.y + Math.sin(a) * dist, 20, CONFIG.worldHeight - 20);

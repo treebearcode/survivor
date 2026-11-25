@@ -28,6 +28,11 @@ and a nova pulse — survive 5:00, then defeat the Void Dreadnought.
 - Start menu: a generated 10s ambient space loop plays behind the
   title (two copies crossfade at the loop point, so there is no
   visible jump when it restarts).
+- Video Mobs (prototype): a start-menu toggle (press V or click it)
+  swaps Drones for a looping holo-screen video drone — the mob is a
+  rectangle on purpose, a glowing screen with the drone inside, and
+  one shared decoder serves all of them. Prototype limits: max 8
+  video drones alive, spawns at most 1 per 1.6s, 3-drone swarms.
 - All art is procedural and all sounds are WebAudio — no external assets.
 - ES modules in `docs/`, no build step — Pages serves it as-is.
 
@@ -108,6 +113,7 @@ docs/                 Source of truth AND the GitHub Pages folder — edit here
   assets/
     phaser.min.js     Phaser 3.60.0, bundled locally (MIT licence, see CREDITS.md)
     menu-loop.mp4     Generated 10s ambient space loop for the start menu
+    video-drone.mp4   Generated 10s holo-screen drone loop (Video Mobs prototype)
 README.md
 CREDITS.md
 ```
